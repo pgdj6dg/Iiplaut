@@ -1,0 +1,325 @@
+-- Rayfield Interface Setup
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Hax Menu",
+    LoadingTitle = "Loading Hax...",
+    LoadingSubtitle = "by Sirius",
+    ConfigurationSaving = {
+        Enabled = true,
+        FileName = "HaxConfig"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false,
+})
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ESP Variables
+local ESPEnabled = false
+local ESPBoxes = {}
+local ESPHighlights = {}
+
+-- Flying Variables
+local Flying = false
+local FlySpeed = 50
+local FlyKeys = {
+    Forward = Enum.KeyCode.W,
+    Backward = Enum.KeyCode.S,
+    Left = Enum.KeyCode.A,
+    Right = Enum.KeyCode.D,
+    Up = Enum.KeyCode.Space,
+    Down = Enum.KeyCode.LeftShift
+}
+
+-- Speed Variables
+local SpeedEnabled = false
+local SpeedValue = 50
+
+-- Invisibility Variables
+local Invisible = false
+local OriginalTransparency = {}
+
+-- Functions
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    
+    -- Box ESP
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "ESPBox"
+    box.Adornee = humanoidRootPart
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = Vector3.new(3, 6, 3)
+    box.Transparency = 0.5
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.Parent = humanoidRootPart
+    
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.Adornee = character
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Parent = character
+    
+    ESPBoxes[player] = box
+    ESPHighlights[player] = highlight
+end
+
+local function RemoveESP(player)
+    if ESPBoxes[player] then
+        ESPBoxes[player]:Destroy()
+        ESPBoxes[player] = nil
+    end
+    if ESPHighlights[player] then
+        ESPHighlights[player]:Destroy()
+        ESPHighlights[player] = nil
+    end
+end
+
+local function ToggleESP(toggle)
+    ESPEnabled = toggle
+    if toggle then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                CreateESP(player)
+            end
+        end
+        Players.PlayerAdded:Connect(function(player)
+            CreateESP(player)
+        end)
+        Players.PlayerRemoving:Connect(function(player)
+            RemoveESP(player)
+        end)
+    else
+        for player, _ in pairs(ESPBoxes) do
+            RemoveESP(player)
+        end
+    end
+end
+
+local function KillAll()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                end
+            end
+        end
+    end
+end
+
+local function Fly()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    humanoid.PlatformStand = Flying
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    local flyVelocity = Instance.new("BodyVelocity")
+    flyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    flyVelocity.P = 10000
+    flyVelocity.Parent = rootPart
+    
+    local flyGyro = Instance.new("BodyGyro")
+    flyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    flyGyro.P = 10000
+    flyGyro.D = 500
+    flyGyro.Parent = rootPart
+    
+    while Flying and character and humanoid and rootPart and flyVelocity and flyGyro do
+        flyGyro.CFrame = Camera.CFrame
+        
+        local direction = Vector3.new()
+        if UserInputService:IsKeyDown(FlyKeys.Forward) then
+            direction = direction + Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(FlyKeys.Backward) then
+            direction = direction - Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(FlyKeys.Left) then
+            direction = direction - Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(FlyKeys.Right) then
+            direction = direction + Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(FlyKeys.Up) then
+            direction = direction + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(FlyKeys.Down) then
+            direction = direction - Vector3.new(0, 1, 0)
+        end
+        
+        if direction.Magnitude > 0 then
+            direction = direction.Unit * FlySpeed
+        end
+        
+        flyVelocity.Velocity = direction
+        
+        RunService.RenderStepped:Wait()
+    end
+    
+    if flyVelocity then flyVelocity:Destroy() end
+    if flyGyro then flyGyro:Destroy() end
+    if humanoid then humanoid.PlatformStand = false end
+end
+
+local function ToggleFly(toggle)
+    Flying = toggle
+    if toggle then
+        Fly()
+    end
+end
+
+local function ToggleSpeed(toggle)
+    SpeedEnabled = toggle
+    if toggle then
+        LocalPlayer.Character:WaitForChild("Humanoid").WalkSpeed = SpeedValue
+    else
+        LocalPlayer.Character:WaitForChild("Humanoid").WalkSpeed = 16
+    end
+end
+
+local function ToggleInvisibility(toggle)
+    Invisible = toggle
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    if toggle then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                OriginalTransparency[part] = part.Transparency
+                part.Transparency = 1
+                if part:FindFirstChildOfClass("Decal") then
+                    part:FindFirstChildOfClass("Decal").Transparency = 1
+                end
+            end
+        end
+    else
+        for part, transparency in pairs(OriginalTransparency) do
+            if part and part.Parent then
+                part.Transparency = transparency
+                if part:FindFirstChildOfClass("Decal") then
+                    part:FindFirstChildOfClass("Decal").Transparency = transparency
+                end
+            end
+        end
+        OriginalTransparency = {}
+    end
+end
+
+-- Tabs
+local MainTab = Window:CreateTab("Main Features", 4483362458) -- Sword icon
+local VisualsTab = Window:CreateTab("Visuals", 4483362458) -- Sword icon
+local PlayerTab = Window:CreateTab("Player", 4483362458) -- Sword icon
+
+-- Main Tab
+MainTab:CreateButton({
+    Name = "Kill Everyone",
+    Callback = function()
+        KillAll()
+    end,
+})
+
+-- Visuals Tab
+VisualsTab:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Flag = "ESP",
+    Callback = function(value)
+        ToggleESP(value)
+    end,
+})
+
+-- Player Tab
+PlayerTab:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Flag = "Fly",
+    Callback = function(value)
+        ToggleFly(value)
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {1, 200},
+    Increment = 1,
+    Suffix = "studs",
+    CurrentValue = FlySpeed,
+    Flag = "FlySpeed",
+    Callback = function(value)
+        FlySpeed = value
+    end,
+})
+
+PlayerTab:CreateToggle({
+    Name = "Speed",
+    CurrentValue = false,
+    Flag = "Speed",
+    Callback = function(value)
+        ToggleSpeed(value)
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "Speed Value",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = "studs",
+    CurrentValue = SpeedValue,
+    Flag = "SpeedValue",
+    Callback = function(value)
+        SpeedValue = value
+        if SpeedEnabled then
+            ToggleSpeed(true)
+        end
+    end,
+})
+
+PlayerTab:CreateToggle({
+    Name = "Invisibility",
+    CurrentValue = false,
+    Flag = "Invisibility",
+    Callback = function(value)
+        ToggleInvisibility(value)
+    end,
+})
+
+-- Character added/removed events
+LocalPlayer.CharacterAdded:Connect(function(character)
+    if SpeedEnabled then
+        character:WaitForChild("Humanoid").WalkSpeed = SpeedValue
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    RemoveESP(player)
+end)
+
+-- Initialization
+Rayfield:LoadConfiguration()
