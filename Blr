@@ -1,0 +1,157 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Blue Lock Rivals",
+   LoadingTitle = "Loading Bachira Update Menu...",
+   LoadingSubtitle = "April 27 Version",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "BlueLockRivals",
+      FileName = "BachiraUpdate"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false
+})
+
+-- Main Tab
+local MainTab = Window:CreateTab("Main Features", 4483362458) -- Football icon
+
+-- Lucky Spins Section
+MainTab:CreateSection("Lucky Spins")
+local SpinInput = MainTab:CreateInput({
+   Name = "Spin Amount",
+   PlaceholderText = "100",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      _G.SpinAmount = tonumber(Text) or 100
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Redeem Spins",
+   Callback = function()
+      local amount = _G.SpinAmount or 100
+      game:GetService("ReplicatedStorage").RemoteEvents.SpinEvent:FireServer(amount)
+      Rayfield:Notify({
+         Title = "Success",
+         Content = "Redeemed "..amount.." spins!",
+         Duration = 3,
+         Image = 4483362458
+      })
+   end,
+})
+
+-- Money Section
+MainTab:CreateSection("Money & Levels")
+MainTab:CreateInput({
+   Name = "Money Amount",
+   PlaceholderText = "1000000",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      _G.MoneyAmount = tonumber(Text) or 1000000
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Set Money",
+   Callback = function()
+      local amount = _G.MoneyAmount or 1000000
+      local char = game.Players.LocalPlayer.Character
+      if char then
+         local humanoid = char:FindFirstChildOfClass("Humanoid")
+         if humanoid then
+            humanoid:SetAttribute("Money", amount)
+            Rayfield:Notify({
+               Title = "Money Set",
+               Content = "$"..amount.." added!",
+               Duration = 3,
+               Image = 4483362458
+            })
+         end
+      end
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "Player Level",
+   Range = {1, 100},
+   Increment = 1,
+   Suffix = "Level",
+   CurrentValue = 1,
+   Callback = function(Value)
+      game:GetService("Players").LocalPlayer.PlayerGui.LevelGui.Level.Value = Value
+   end
+})
+
+-- Styles Tab
+local StylesTab = Window:CreateTab("Styles & Flow", 4483362458)
+
+StylesTab:CreateSection("Flow Meter")
+StylesTab:CreateSlider({
+   Name = "Flow Percentage",
+   Range = {0, 100},
+   Increment = 1,
+   Suffix = "%",
+   CurrentValue = 0,
+   Callback = function(Value)
+      game:GetService("Players").LocalPlayer.PlayerGui.FlowGui.Flow.Value = Value
+   end
+})
+
+StylesTab:CreateSection("Character Styles")
+local StyleDropdown = StylesTab:CreateDropdown({
+   Name = "Select Style",
+   Options = {"Bachira (New)", "Isagi", "Rin", "Chigiri", "Barou"},
+   CurrentOption = "Bachira (New)",
+   Callback = function(Option)
+      local styleMap = {
+         ["Bachira (New)"] = "BachiraApril27",
+         ["Isagi"] = "Isagi",
+         ["Rin"] = "Rin",
+         ["Chigiri"] = "Chigiri",
+         ["Barou"] = "Barou"
+      }
+      game:GetService("ReplicatedStorage").RemoteEvents.ChangeStyle:FireServer(styleMap[Option])
+   end,
+})
+
+-- Player Tab
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+PlayerTab:CreateSection("Character Controls")
+PlayerTab:CreateButton({
+   Name = "Reset Character",
+   Callback = function()
+      game:GetService("Players").LocalPlayer.Character:BreakJoints()
+   end,
+})
+
+PlayerTab:CreateToggle({
+   Name = "Auto Farm (Experimental)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoFarm = Value
+      while _G.AutoFarm do
+         task.wait(1)
+         -- Add your farming logic here
+      end
+   end,
+})
+
+-- Credits Tab
+local CreditsTab = Window:CreateTab("Credits", 4483362458)
+CreditsTab:CreateSection("Script Info")
+CreditsTab:CreateLabel("Blue Lock Rivals Script")
+CreditsTab:CreateLabel("Updated for April 27 Bachira Patch")
+CreditsTab:CreateLabel("UI by Rayfield")
+
+Rayfield:Notify({
+   Title = "Menu Loaded",
+   Content = "Blue Lock Rivals cheat menu activated!",
+   Duration = 5,
+   Image = 4483362458
+})
