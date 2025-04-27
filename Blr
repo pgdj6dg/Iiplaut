@@ -3,25 +3,134 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- Local Player
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Track character changes
 Player.CharacterAdded:Connect(function(newChar)
     Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    
+    -- Reapply modifications if toggles are active
+    if SpeedToggle and SpeedToggle.CurrentValue then
+        Humanoid.WalkSpeed = 100
+    end
+    if JumpToggle and JumpToggle.CurrentValue then
+        Humanoid.JumpPower = 150
+    end
+    if FlyToggle and FlyToggle.CurrentValue then
+        EnableFly()
+    end
 end)
 
--- NoClip Variables
-local Noclip = false
-local NoclipConnection
+-- Fly Variables
+local Flying = false
+local FlySpeed = 50
+local FlyControls = {
+    Forward = false,
+    Backward = false,
+    Left = false,
+    Right = false,
+    Up = false,
+    Down = false
+}
+
+-- Function to enable flying
+local function EnableFly()
+    Flying = true
+    Humanoid.PlatformStand = true
+    
+    -- Create body velocity if it doesn't exist
+    if not HumanoidRootPart:FindFirstChild("FlyVelocity") then
+        local BV = Instance.new("BodyVelocity", HumanoidRootPart)
+        BV.Name = "FlyVelocity"
+        BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BV.Velocity = Vector3.new(0, 0, 0)
+    end
+    
+    -- Input connections for fly controls
+    local FlyForwardConnection
+    local FlyBackwardConnection
+    local FlyLeftConnection
+    local FlyRightConnection
+    local FlyUpConnection
+    local FlyDownConnection
+    
+    FlyForwardConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.W then
+            FlyControls.Forward = true
+        end
+    end)
+    
+    FlyBackwardConnection = UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.W then
+            FlyControls.Forward = false
+        elseif input.KeyCode == Enum.KeyCode.S then
+            FlyControls.Backward = false
+        elseif input.KeyCode == Enum.KeyCode.A then
+            FlyControls.Left = false
+        elseif input.KeyCode == Enum.KeyCode.D then
+            FlyControls.Right = false
+        elseif input.KeyCode == Enum.KeyCode.Space then
+            FlyControls.Up = false
+        elseif input.KeyCode == Enum.KeyCode.LeftShift then
+            FlyControls.Down = false
+        end
+    end)
+    
+    -- Fly movement loop
+    local FlyConnection = RunService.Heartbeat:Connect(function()
+        if Flying and HumanoidRootPart and HumanoidRootPart:FindFirstChild("FlyVelocity") then
+            local BV = HumanoidRootPart.FlyVelocity
+            local CF = HumanoidRootPart.CFrame
+            
+            -- Calculate movement direction
+            local direction = Vector3.new(
+                (FlyControls.Right and 1 or 0) - (FlyControls.Left and 1 or 0),
+                (FlyControls.Up and 1 or 0) - (FlyControls.Down and 1 or 0),
+                (FlyControls.Backward and 1 or 0) - (FlyControls.Forward and 1 or 0)
+            )
+            
+            -- Apply movement
+            if direction.Magnitude > 0 then
+                direction = CF:VectorToWorldSpace(direction.Unit * FlySpeed)
+            end
+            BV.Velocity = direction
+        end
+    end)
+    
+    -- Cleanup function
+    return function()
+        Flying = false
+        if Humanoid then
+            Humanoid.PlatformStand = false
+        end
+        if HumanoidRootPart and HumanoidRootPart:FindFirstChild("FlyVelocity") then
+            HumanoidRootPart.FlyVelocity:Destroy()
+        end
+        if FlyConnection then
+            FlyConnection:Disconnect()
+        end
+        if FlyForwardConnection then
+            FlyForwardConnection:Disconnect()
+        end
+        if FlyBackwardConnection then
+            FlyBackwardConnection:Disconnect()
+        end
+    end
+end
 
 -- Window Creation
 local Window = Rayfield:CreateWindow({
     Name = "Blue Lock Rivals ⚽",
-    Icon = "⚽",
     LoadingTitle = "Blue Lock Rivals",
-    LoadingSubtitle = "Dominate the field",
-    Theme = "Default",
+    LoadingSubtitle = "Script loaded successfully!",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "BlueLockRivals",
@@ -29,83 +138,118 @@ local Window = Rayfield:CreateWindow({
     },
     Discord = {
         Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
-    },
-    KeySystem = false
+        Invite = "noinvitelink"
+    }
 })
 
--- NoClip Function
-local function NoclipLoop()
-    if Character and Character:FindFirstChild("Humanoid") then
-        for _, part in pairs(Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = not Noclip
-            end
-        end
-    end
-end
-
 -- Main Tab
-local MainTab = Window:CreateTab("Main", 4483362458)
+local MainTab = Window:CreateTab("Main Features", 4483362458)
 
 -- Player Section
 local PlayerSection = MainTab:CreateSection("Player Modifications")
 
 local SpeedToggle = MainTab:CreateToggle({
-    Name = "Super Speed",
+    Name = "Super Speed (100 studs/s)",
     CurrentValue = false,
     Flag = "SpeedToggle",
     Callback = function(Value)
-        if Character and Character:FindFirstChild("Humanoid") then
-            if Value then
-                Character.Humanoid.WalkSpeed = 100
-            else
-                Character.Humanoid.WalkSpeed = 16
-            end
+        if Humanoid then
+            Humanoid.WalkSpeed = Value and 100 or 16
         end
     end,
 })
 
 local JumpToggle = MainTab:CreateToggle({
-    Name = "Super Jump",
+    Name = "Super Jump (150 power)",
     CurrentValue = false,
     Flag = "JumpToggle",
     Callback = function(Value)
-        if Character and Character:FindFirstChild("Humanoid") then
-            if Value then
-                Character.Humanoid.JumpPower = 150
-            else
-                Character.Humanoid.JumpPower = 50
-            end
+        if Humanoid then
+            Humanoid.JumpPower = Value and 150 or 50
         end
     end,
 })
 
--- NoClip Toggle
+-- Fly Toggle
+local FlyToggle = MainTab:CreateToggle({
+    Name = "Fly (WASD + Space/Shift)",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        if Value then
+            local cleanup = EnableFly()
+            Rayfield:Notify({
+                Title = "Fly Enabled",
+                Content = "Use WASD to move, Space to go up, Shift to go down",
+                Duration = 5,
+            })
+            
+            -- Store cleanup function for later
+            FlyToggle.Cleanup = cleanup
+        else
+            if FlyToggle.Cleanup then
+                FlyToggle.Cleanup()
+            end
+            Rayfield:Notify({
+                Title = "Fly Disabled",
+                Content = "Flying has been turned off",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- Fly Speed Slider
+local FlySpeedSlider = MainTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {20, 200},
+    Increment = 5,
+    Suffix = " studs/s",
+    CurrentValue = 50,
+    Flag = "FlySpeed",
+    Callback = function(Value)
+        FlySpeed = Value
+    end,
+})
+
+-- NoClip Implementation
 local NoclipToggle = MainTab:CreateToggle({
-    Name = "NoClip",
+    Name = "NoClip (Walk through walls)",
     CurrentValue = false,
     Flag = "NoclipToggle",
     Callback = function(Value)
-        Noclip = Value
-        if Noclip then
-            NoclipConnection = RunService.Stepped:Connect(NoclipLoop)
+        if Value then
+            -- Enable NoClip
+            NoclipConnection = RunService.Stepped:Connect(function()
+                if Character then
+                    for _, part in pairs(Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
             Rayfield:Notify({
                 Title = "NoClip Enabled",
                 Content = "You can now walk through objects",
                 Duration = 3,
-                Image = 4483362458,
             })
         else
+            -- Disable NoClip
             if NoclipConnection then
                 NoclipConnection:Disconnect()
+            end
+            if Character then
+                for _, part in pairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
             end
             Rayfield:Notify({
                 Title = "NoClip Disabled",
                 Content = "Collisions are now normal",
                 Duration = 3,
-                Image = 4483362458,
             })
         end
     end,
@@ -122,73 +266,11 @@ local BallSpeedSlider = MainTab:CreateSlider({
     CurrentValue = 1,
     Flag = "BallSpeed",
     Callback = function(Value)
-        -- Adjust ball speed in the game
         local ball = workspace:FindFirstChild("Ball") or workspace:FindFirstChild("Football")
         if ball then
-            local bodyForce = ball:FindFirstChild("BodyForce") or Instance.new("BodyForce", ball)
-            bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0) * Value
-        end
-    end,
-})
-
-local AutoScoreToggle = MainTab:CreateToggle({
-    Name = "Auto Score",
-    CurrentValue = false,
-    Flag = "AutoScore",
-    Callback = function(Value)
-        if Value then
-            Rayfield:Notify({
-                Title = "Auto Score Enabled",
-                Content = "Automatically scoring goals",
-                Duration = 3,
-                Image = 4483362458,
-            })
-            -- This would need to be implemented based on the game's scoring system
-            -- You might need to add a loop that checks ball position and teleports it to goal
-        else
-            Rayfield:Notify({
-                Title = "Auto Score Disabled",
-                Content = "Manual scoring only",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        end
-    end,
-})
-
--- Visuals Tab
-local VisualsTab = Window:CreateTab("Visuals", 4483362458)
-
-local CharacterSection = VisualsTab:CreateSection("Character Visuals")
-
-local HitboxToggle = VisualsTab:CreateToggle({
-    Name = "Show Hitboxes",
-    CurrentValue = false,
-    Flag = "HitboxToggle",
-    Callback = function(Value)
-        -- Implementation would depend on the game
-        if Value then
-            -- Create hitbox visuals
-        else
-            -- Remove hitbox visuals
-        end
-    end,
-})
-
-local ESPToggle = VisualsTab:CreateToggle({
-    Name = "Player ESP",
-    CurrentValue = false,
-    Flag = "ESPToggle",
-    Callback = function(Value)
-        -- Basic ESP implementation
-        if Value then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Player then
-                    -- Create ESP boxes or names
-                end
-            end
-        else
-            -- Remove ESP visuals
+            local bodyVelocity = ball:FindFirstChildOfClass("BodyVelocity") or Instance.new("BodyVelocity", ball)
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVelocity.Velocity = ball.Velocity * Value
         end
     end,
 })
@@ -196,25 +278,38 @@ local ESPToggle = VisualsTab:CreateToggle({
 -- Teleport Tab
 local TeleportTab = Window:CreateTab("Teleport", 4483362458)
 
-local LocationsSection = TeleportTab:CreateSection("Locations")
+local LocationsSection = TeleportTab:CreateSection("Key Locations")
+
+local function SafeTeleport(position)
+    if Character and HumanoidRootPart then
+        HumanoidRootPart.CFrame = CFrame.new(position)
+        return true
+    end
+    return false
+end
 
 local TeleportButtons = {
     {"Spawn", Vector3.new(0, 5, 0)},
-    {"Goal", Vector3.new(50, 5, 0)},
-    {"Midfield", Vector3.new(25, 5, 25)}
+    {"Opponent Goal", Vector3.new(100, 5, 0)},
+    {"Your Goal", Vector3.new(-100, 5, 0)},
+    {"Midfield", Vector3.new(0, 5, 0)}
 }
 
 for _, button in pairs(TeleportButtons) do
     TeleportTab:CreateButton({
         Name = "Teleport to " .. button[1],
         Callback = function()
-            if Character and Character:FindFirstChild("HumanoidRootPart") then
-                Character.HumanoidRootPart.CFrame = CFrame.new(button[2])
+            if SafeTeleport(button[2]) then
                 Rayfield:Notify({
                     Title = "Teleported",
-                    Content = "Teleported to " .. button[1],
+                    Content = "Successfully teleported to " .. button[1],
                     Duration = 3,
-                    Image = 4483362458,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Teleport Failed",
+                    Content = "Could not teleport to " .. button[1],
+                    Duration = 3,
                 })
             end
         end,
@@ -233,7 +328,6 @@ SettingsTab:CreateButton({
             Title = "Settings Saved",
             Content = "Your configuration has been saved",
             Duration = 3,
-            Image = 4483362458,
         })
     end,
 })
@@ -242,19 +336,17 @@ SettingsTab:CreateButton({
     Name = "Reset Configuration",
     Callback = function()
         -- Reset all toggles and sliders
-        SpeedToggle:Set(false)
-        JumpToggle:Set(false)
-        NoclipToggle:Set(false)
-        BallSpeedSlider:Set(1)
-        AutoScoreToggle:Set(false)
-        HitboxToggle:Set(false)
-        ESPToggle:Set(false)
+        if SpeedToggle then SpeedToggle:Set(false) end
+        if JumpToggle then JumpToggle:Set(false) end
+        if FlyToggle then FlyToggle:Set(false) end
+        if NoclipToggle then NoclipToggle:Set(false) end
+        if BallSpeedSlider then BallSpeedSlider:Set(1) end
+        if FlySpeedSlider then FlySpeedSlider:Set(50) end
         
         Rayfield:Notify({
             Title = "Settings Reset",
             Content = "Your configuration has been reset",
             Duration = 3,
-            Image = 4483362458,
         })
     end,
 })
@@ -262,7 +354,6 @@ SettingsTab:CreateButton({
 -- Initialization
 Rayfield:Notify({
     Title = "Blue Lock Rivals Loaded",
-    Content = "The script has been successfully loaded!",
-    Duration = 5,
-    Image = 4483362458,
+    Content = "Press F9 if you encounter any issues",
+    Duration = 6,
 })
