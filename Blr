@@ -29,101 +29,40 @@ Player.CharacterAdded:Connect(function(newChar)
     end
 end)
 
--- Fly Variables
-local Flying = false
-local FlySpeed = 50
-local FlyControls = {
-    Forward = false,
-    Backward = false,
-    Left = false,
-    Right = false,
-    Up = false,
-    Down = false
-}
+-- Function to safely get the ball
+local function GetBall()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name:lower():find("ball") and obj:IsA("BasePart") then
+            return obj
+        end
+    end
+    return nil
+end
 
--- Function to enable flying
-local function EnableFly()
-    Flying = true
-    Humanoid.PlatformStand = true
-    
-    -- Create body velocity if it doesn't exist
-    if not HumanoidRootPart:FindFirstChild("FlyVelocity") then
-        local BV = Instance.new("BodyVelocity", HumanoidRootPart)
-        BV.Name = "FlyVelocity"
-        BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        BV.Velocity = Vector3.new(0, 0, 0)
+-- Function to bring ball to player
+local function BringBallToPlayer()
+    local ball = GetBall()
+    if ball and HumanoidRootPart then
+        -- Create a body position to smoothly bring the ball
+        local bodyPosition = Instance.new("BodyPosition", ball)
+        bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyPosition.Position = HumanoidRootPart.Position + HumanoidRootPart.CFrame.LookVector * 5 + Vector3.new(0, 3, 0)
+        
+        -- Create a body gyro to stop the ball from spinning
+        local bodyGyro = Instance.new("BodyGyro", ball)
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.P = 10000
+        bodyGyro.D = 1000
+        
+        -- Clean up after 3 seconds
+        delay(3, function()
+            if bodyPosition then bodyPosition:Destroy() end
+            if bodyGyro then bodyGyro:Destroy() end
+        end)
+        
+        return true
     end
-    
-    -- Input connections for fly controls
-    local FlyForwardConnection
-    local FlyBackwardConnection
-    local FlyLeftConnection
-    local FlyRightConnection
-    local FlyUpConnection
-    local FlyDownConnection
-    
-    FlyForwardConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if input.KeyCode == Enum.KeyCode.W then
-            FlyControls.Forward = true
-        end
-    end)
-    
-    FlyBackwardConnection = UserInputService.InputEnded:Connect(function(input, gameProcessed)
-        if input.KeyCode == Enum.KeyCode.W then
-            FlyControls.Forward = false
-        elseif input.KeyCode == Enum.KeyCode.S then
-            FlyControls.Backward = false
-        elseif input.KeyCode == Enum.KeyCode.A then
-            FlyControls.Left = false
-        elseif input.KeyCode == Enum.KeyCode.D then
-            FlyControls.Right = false
-        elseif input.KeyCode == Enum.KeyCode.Space then
-            FlyControls.Up = false
-        elseif input.KeyCode == Enum.KeyCode.LeftShift then
-            FlyControls.Down = false
-        end
-    end)
-    
-    -- Fly movement loop
-    local FlyConnection = RunService.Heartbeat:Connect(function()
-        if Flying and HumanoidRootPart and HumanoidRootPart:FindFirstChild("FlyVelocity") then
-            local BV = HumanoidRootPart.FlyVelocity
-            local CF = HumanoidRootPart.CFrame
-            
-            -- Calculate movement direction
-            local direction = Vector3.new(
-                (FlyControls.Right and 1 or 0) - (FlyControls.Left and 1 or 0),
-                (FlyControls.Up and 1 or 0) - (FlyControls.Down and 1 or 0),
-                (FlyControls.Backward and 1 or 0) - (FlyControls.Forward and 1 or 0)
-            )
-            
-            -- Apply movement
-            if direction.Magnitude > 0 then
-                direction = CF:VectorToWorldSpace(direction.Unit * FlySpeed)
-            end
-            BV.Velocity = direction
-        end
-    end)
-    
-    -- Cleanup function
-    return function()
-        Flying = false
-        if Humanoid then
-            Humanoid.PlatformStand = false
-        end
-        if HumanoidRootPart and HumanoidRootPart:FindFirstChild("FlyVelocity") then
-            HumanoidRootPart.FlyVelocity:Destroy()
-        end
-        if FlyConnection then
-            FlyConnection:Disconnect()
-        end
-        if FlyForwardConnection then
-            FlyForwardConnection:Disconnect()
-        end
-        if FlyBackwardConnection then
-            FlyBackwardConnection:Disconnect()
-        end
-    end
+    return false
 end
 
 -- Window Creation
@@ -145,118 +84,28 @@ local Window = Rayfield:CreateWindow({
 -- Main Tab
 local MainTab = Window:CreateTab("Main Features", 4483362458)
 
--- Player Section
-local PlayerSection = MainTab:CreateSection("Player Modifications")
-
-local SpeedToggle = MainTab:CreateToggle({
-    Name = "Super Speed (100 studs/s)",
-    CurrentValue = false,
-    Flag = "SpeedToggle",
-    Callback = function(Value)
-        if Humanoid then
-            Humanoid.WalkSpeed = Value and 100 or 16
-        end
-    end,
-})
-
-local JumpToggle = MainTab:CreateToggle({
-    Name = "Super Jump (150 power)",
-    CurrentValue = false,
-    Flag = "JumpToggle",
-    Callback = function(Value)
-        if Humanoid then
-            Humanoid.JumpPower = Value and 150 or 50
-        end
-    end,
-})
-
--- Fly Toggle
-local FlyToggle = MainTab:CreateToggle({
-    Name = "Fly (WASD + Space/Shift)",
-    CurrentValue = false,
-    Flag = "FlyToggle",
-    Callback = function(Value)
-        if Value then
-            local cleanup = EnableFly()
-            Rayfield:Notify({
-                Title = "Fly Enabled",
-                Content = "Use WASD to move, Space to go up, Shift to go down",
-                Duration = 5,
-            })
-            
-            -- Store cleanup function for later
-            FlyToggle.Cleanup = cleanup
-        else
-            if FlyToggle.Cleanup then
-                FlyToggle.Cleanup()
-            end
-            Rayfield:Notify({
-                Title = "Fly Disabled",
-                Content = "Flying has been turned off",
-                Duration = 3,
-            })
-        end
-    end,
-})
-
--- Fly Speed Slider
-local FlySpeedSlider = MainTab:CreateSlider({
-    Name = "Fly Speed",
-    Range = {20, 200},
-    Increment = 5,
-    Suffix = " studs/s",
-    CurrentValue = 50,
-    Flag = "FlySpeed",
-    Callback = function(Value)
-        FlySpeed = Value
-    end,
-})
-
--- NoClip Implementation
-local NoclipToggle = MainTab:CreateToggle({
-    Name = "NoClip (Walk through walls)",
-    CurrentValue = false,
-    Flag = "NoclipToggle",
-    Callback = function(Value)
-        if Value then
-            -- Enable NoClip
-            NoclipConnection = RunService.Stepped:Connect(function()
-                if Character then
-                    for _, part in pairs(Character:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
-                end
-            end)
-            Rayfield:Notify({
-                Title = "NoClip Enabled",
-                Content = "You can now walk through objects",
-                Duration = 3,
-            })
-        else
-            -- Disable NoClip
-            if NoclipConnection then
-                NoclipConnection:Disconnect()
-            end
-            if Character then
-                for _, part in pairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                    end
-                end
-            end
-            Rayfield:Notify({
-                Title = "NoClip Disabled",
-                Content = "Collisions are now normal",
-                Duration = 3,
-            })
-        end
-    end,
-})
-
 -- Ball Section
 local BallSection = MainTab:CreateSection("Ball Control")
+
+-- Add this button with the other ball controls
+MainTab:CreateButton({
+    Name = "Bring Ball to Player",
+    Callback = function()
+        if BringBallToPlayer() then
+            Rayfield:Notify({
+                Title = "Ball Attracted",
+                Content = "The ball is coming to you!",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Ball Not Found",
+                Content = "Could not find the ball in the workspace",
+                Duration = 3,
+            })
+        end
+    end,
+})
 
 local BallSpeedSlider = MainTab:CreateSlider({
     Name = "Ball Speed Multiplier",
@@ -266,7 +115,7 @@ local BallSpeedSlider = MainTab:CreateSlider({
     CurrentValue = 1,
     Flag = "BallSpeed",
     Callback = function(Value)
-        local ball = workspace:FindFirstChild("Ball") or workspace:FindFirstChild("Football")
+        local ball = GetBall()
         if ball then
             local bodyVelocity = ball:FindFirstChildOfClass("BodyVelocity") or Instance.new("BodyVelocity", ball)
             bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -275,81 +124,24 @@ local BallSpeedSlider = MainTab:CreateSlider({
     end,
 })
 
--- Teleport Tab
-local TeleportTab = Window:CreateTab("Teleport", 4483362458)
-
-local LocationsSection = TeleportTab:CreateSection("Key Locations")
-
-local function SafeTeleport(position)
-    if Character and HumanoidRootPart then
-        HumanoidRootPart.CFrame = CFrame.new(position)
-        return true
-    end
-    return false
-end
-
-local TeleportButtons = {
-    {"Spawn", Vector3.new(0, 5, 0)},
-    {"Opponent Goal", Vector3.new(100, 5, 0)},
-    {"Your Goal", Vector3.new(-100, 5, 0)},
-    {"Midfield", Vector3.new(0, 5, 0)}
-}
-
-for _, button in pairs(TeleportButtons) do
-    TeleportTab:CreateButton({
-        Name = "Teleport to " .. button[1],
-        Callback = function()
-            if SafeTeleport(button[2]) then
-                Rayfield:Notify({
-                    Title = "Teleported",
-                    Content = "Successfully teleported to " .. button[1],
-                    Duration = 3,
-                })
+local BallGravityToggle = MainTab:CreateToggle({
+    Name = "Disable Ball Gravity",
+    CurrentValue = false,
+    Flag = "BallGravityToggle",
+    Callback = function(Value)
+        local ball = GetBall()
+        if ball then
+            local bodyForce = ball:FindFirstChildOfClass("BodyForce") or Instance.new("BodyForce", ball)
+            if Value then
+                bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0)
             else
-                Rayfield:Notify({
-                    Title = "Teleport Failed",
-                    Content = "Could not teleport to " .. button[1],
-                    Duration = 3,
-                })
+                bodyForce.Force = Vector3.new(0, 0, 0)
             end
-        end,
-    })
-end
-
--- Settings Tab
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
-
-local ConfigSection = SettingsTab:CreateSection("Configuration")
-
-SettingsTab:CreateButton({
-    Name = "Save Configuration",
-    Callback = function()
-        Rayfield:Notify({
-            Title = "Settings Saved",
-            Content = "Your configuration has been saved",
-            Duration = 3,
-        })
+        end
     end,
 })
 
-SettingsTab:CreateButton({
-    Name = "Reset Configuration",
-    Callback = function()
-        -- Reset all toggles and sliders
-        if SpeedToggle then SpeedToggle:Set(false) end
-        if JumpToggle then JumpToggle:Set(false) end
-        if FlyToggle then FlyToggle:Set(false) end
-        if NoclipToggle then NoclipToggle:Set(false) end
-        if BallSpeedSlider then BallSpeedSlider:Set(1) end
-        if FlySpeedSlider then FlySpeedSlider:Set(50) end
-        
-        Rayfield:Notify({
-            Title = "Settings Reset",
-            Content = "Your configuration has been reset",
-            Duration = 3,
-        })
-    end,
-})
+-- [Rest of your existing code (Fly, NoClip, Teleport, etc.) goes here...]
 
 -- Initialization
 Rayfield:Notify({
