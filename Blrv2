@@ -1,0 +1,151 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Local Player
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Track character changes
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    
+    -- Reapply modifications if toggles are active
+    if SpeedToggle and SpeedToggle.CurrentValue then
+        Humanoid.WalkSpeed = 100
+    end
+    if JumpToggle and JumpToggle.CurrentValue then
+        Humanoid.JumpPower = 150
+    end
+    if FlyToggle and FlyToggle.CurrentValue then
+        EnableFly()
+    end
+end)
+
+-- Function to safely get the ball
+local function GetBall()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name:lower():find("ball") and obj:IsA("BasePart") then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- Function to bring ball to player
+local function BringBallToPlayer()
+    local ball = GetBall()
+    if ball and HumanoidRootPart then
+        -- Create a body position to smoothly bring the ball
+        local bodyPosition = Instance.new("BodyPosition", ball)
+        bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyPosition.Position = HumanoidRootPart.Position + HumanoidRootPart.CFrame.LookVector * 5 + Vector3.new(0, 3, 0)
+        
+        -- Create a body gyro to stop the ball from spinning
+        local bodyGyro = Instance.new("BodyGyro", ball)
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.P = 10000
+        bodyGyro.D = 1000
+        
+        -- Clean up after 3 seconds
+        delay(3, function()
+            if bodyPosition then bodyPosition:Destroy() end
+            if bodyGyro then bodyGyro:Destroy() end
+        end)
+        
+        return true
+    end
+    return false
+end
+
+-- Window Creation
+local Window = Rayfield:CreateWindow({
+    Name = "Blue Lock Rivals ⚽",
+    LoadingTitle = "Blue Lock Rivals",
+    LoadingSubtitle = "Script loaded successfully!",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "BlueLockRivals",
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink"
+    }
+})
+
+-- Main Tab
+local MainTab = Window:CreateTab("Main Features", 4483362458)
+
+-- Ball Section
+local BallSection = MainTab:CreateSection("Ball Control")
+
+-- Add this button with the other ball controls
+MainTab:CreateButton({
+    Name = "Bring Ball to Player",
+    Callback = function()
+        if BringBallToPlayer() then
+            Rayfield:Notify({
+                Title = "Ball Attracted",
+                Content = "The ball is coming to you!",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Ball Not Found",
+                Content = "Could not find the ball in the workspace",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local BallSpeedSlider = MainTab:CreateSlider({
+    Name = "Ball Speed Multiplier",
+    Range = {1, 10},
+    Increment = 0.5,
+    Suffix = "x",
+    CurrentValue = 1,
+    Flag = "BallSpeed",
+    Callback = function(Value)
+        local ball = GetBall()
+        if ball then
+            local bodyVelocity = ball:FindFirstChildOfClass("BodyVelocity") or Instance.new("BodyVelocity", ball)
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVelocity.Velocity = ball.Velocity * Value
+        end
+    end,
+})
+
+local BallGravityToggle = MainTab:CreateToggle({
+    Name = "Disable Ball Gravity",
+    CurrentValue = false,
+    Flag = "BallGravityToggle",
+    Callback = function(Value)
+        local ball = GetBall()
+        if ball then
+            local bodyForce = ball:FindFirstChildOfClass("BodyForce") or Instance.new("BodyForce", ball)
+            if Value then
+                bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0)
+            else
+                bodyForce.Force = Vector3.new(0, 0, 0)
+            end
+        end
+    end,
+})
+
+-- [Rest of your existing code (Fly, NoClip, Teleport, etc.) goes here...]
+
+-- Initialization
+Rayfield:Notify({
+    Title = "Blue Lock Rivals Loaded",
+    Content = "Press F9 if you encounter any issues",
+    Duration = 6,
+})
