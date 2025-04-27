@@ -1,27 +1,75 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+llocal Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- Local Player
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Track character changes
 Player.CharacterAdded:Connect(function(newChar)
     Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    
+    -- Reapply modifications if toggles are active
+    if SpeedToggle and SpeedToggle.CurrentValue then
+        Humanoid.WalkSpeed = 100
+    end
+    if JumpToggle and JumpToggle.CurrentValue then
+        Humanoid.JumpPower = 150
+    end
+    if FlyToggle and FlyToggle.CurrentValue then
+        EnableFly()
+    end
 end)
 
--- NoClip Variables
-local Noclip = false
-local NoclipConnection
+-- Function to safely get the ball
+local function GetBall()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name:lower():find("ball") and obj:IsA("BasePart") then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- Function to bring ball to player
+local function BringBallToPlayer()
+    local ball = GetBall()
+    if ball and HumanoidRootPart then
+        -- Create a body position to smoothly bring the ball
+        local bodyPosition = Instance.new("BodyPosition", ball)
+        bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyPosition.Position = HumanoidRootPart.Position + HumanoidRootPart.CFrame.LookVector * 5 + Vector3.new(0, 3, 0)
+        
+        -- Create a body gyro to stop the ball from spinning
+        local bodyGyro = Instance.new("BodyGyro", ball)
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.P = 10000
+        bodyGyro.D = 1000
+        
+        -- Clean up after 3 seconds
+        delay(3, function()
+            if bodyPosition then bodyPosition:Destroy() end
+            if bodyGyro then bodyGyro:Destroy() end
+        end)
+        
+        return true
+    end
+    return false
+end
 
 -- Window Creation
 local Window = Rayfield:CreateWindow({
     Name = "Blue Lock Rivals ⚽",
-    Icon = "⚽",
     LoadingTitle = "Blue Lock Rivals",
-    LoadingSubtitle = "Dominate the field",
-    Theme = "Default",
+    LoadingSubtitle = "Script loaded successfully!",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "BlueLockRivals",
@@ -29,90 +77,35 @@ local Window = Rayfield:CreateWindow({
     },
     Discord = {
         Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
-    },
-    KeySystem = false
+        Invite = "noinvitelink"
+    }
 })
-
--- NoClip Function
-local function NoclipLoop()
-    if Character and Character:FindFirstChild("Humanoid") then
-        for _, part in pairs(Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = not Noclip
-            end
-        end
-    end
-end
 
 -- Main Tab
-local MainTab = Window:CreateTab("Main", 4483362458)
-
--- Player Section
-local PlayerSection = MainTab:CreateSection("Player Modifications")
-
-local SpeedToggle = MainTab:CreateToggle({
-    Name = "Super Speed",
-    CurrentValue = false,
-    Flag = "SpeedToggle",
-    Callback = function(Value)
-        if Character and Character:FindFirstChild("Humanoid") then
-            if Value then
-                Character.Humanoid.WalkSpeed = 100
-            else
-                Character.Humanoid.WalkSpeed = 16
-            end
-        end
-    end,
-})
-
-local JumpToggle = MainTab:CreateToggle({
-    Name = "Super Jump",
-    CurrentValue = false,
-    Flag = "JumpToggle",
-    Callback = function(Value)
-        if Character and Character:FindFirstChild("Humanoid") then
-            if Value then
-                Character.Humanoid.JumpPower = 150
-            else
-                Character.Humanoid.JumpPower = 50
-            end
-        end
-    end,
-})
-
--- NoClip Toggle
-local NoclipToggle = MainTab:CreateToggle({
-    Name = "NoClip",
-    CurrentValue = false,
-    Flag = "NoclipToggle",
-    Callback = function(Value)
-        Noclip = Value
-        if Noclip then
-            NoclipConnection = RunService.Stepped:Connect(NoclipLoop)
-            Rayfield:Notify({
-                Title = "NoClip Enabled",
-                Content = "You can now walk through objects",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        else
-            if NoclipConnection then
-                NoclipConnection:Disconnect()
-            end
-            Rayfield:Notify({
-                Title = "NoClip Disabled",
-                Content = "Collisions are now normal",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        end
-    end,
-})
+local MainTab = Window:CreateTab("Main Features", 4483362458)
 
 -- Ball Section
 local BallSection = MainTab:CreateSection("Ball Control")
+
+-- Add this button with the other ball controls
+MainTab:CreateButton({
+    Name = "Bring Ball to Player",
+    Callback = function()
+        if BringBallToPlayer() then
+            Rayfield:Notify({
+                Title = "Ball Attracted",
+                Content = "The ball is coming to you!",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Ball Not Found",
+                Content = "Could not find the ball in the workspace",
+                Duration = 3,
+            })
+        end
+    end,
+})
 
 local BallSpeedSlider = MainTab:CreateSlider({
     Name = "Ball Speed Multiplier",
@@ -122,147 +115,37 @@ local BallSpeedSlider = MainTab:CreateSlider({
     CurrentValue = 1,
     Flag = "BallSpeed",
     Callback = function(Value)
-        -- Adjust ball speed in the game
-        local ball = workspace:FindFirstChild("Ball") or workspace:FindFirstChild("Football")
+        local ball = GetBall()
         if ball then
-            local bodyForce = ball:FindFirstChild("BodyForce") or Instance.new("BodyForce", ball)
-            bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0) * Value
+            local bodyVelocity = ball:FindFirstChildOfClass("BodyVelocity") or Instance.new("BodyVelocity", ball)
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVelocity.Velocity = ball.Velocity * Value
         end
     end,
 })
 
-local AutoScoreToggle = MainTab:CreateToggle({
-    Name = "Auto Score",
+local BallGravityToggle = MainTab:CreateToggle({
+    Name = "Disable Ball Gravity",
     CurrentValue = false,
-    Flag = "AutoScore",
+    Flag = "BallGravityToggle",
     Callback = function(Value)
-        if Value then
-            Rayfield:Notify({
-                Title = "Auto Score Enabled",
-                Content = "Automatically scoring goals",
-                Duration = 3,
-                Image = 4483362458,
-            })
-            -- This would need to be implemented based on the game's scoring system
-            -- You might need to add a loop that checks ball position and teleports it to goal
-        else
-            Rayfield:Notify({
-                Title = "Auto Score Disabled",
-                Content = "Manual scoring only",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        end
-    end,
-})
-
--- Visuals Tab
-local VisualsTab = Window:CreateTab("Visuals", 4483362458)
-
-local CharacterSection = VisualsTab:CreateSection("Character Visuals")
-
-local HitboxToggle = VisualsTab:CreateToggle({
-    Name = "Show Hitboxes",
-    CurrentValue = false,
-    Flag = "HitboxToggle",
-    Callback = function(Value)
-        -- Implementation would depend on the game
-        if Value then
-            -- Create hitbox visuals
-        else
-            -- Remove hitbox visuals
-        end
-    end,
-})
-
-local ESPToggle = VisualsTab:CreateToggle({
-    Name = "Player ESP",
-    CurrentValue = false,
-    Flag = "ESPToggle",
-    Callback = function(Value)
-        -- Basic ESP implementation
-        if Value then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Player then
-                    -- Create ESP boxes or names
-                end
+        local ball = GetBall()
+        if ball then
+            local bodyForce = ball:FindFirstChildOfClass("BodyForce") or Instance.new("BodyForce", ball)
+            if Value then
+                bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0)
+            else
+                bodyForce.Force = Vector3.new(0, 0, 0)
             end
-        else
-            -- Remove ESP visuals
         end
     end,
 })
 
--- Teleport Tab
-local TeleportTab = Window:CreateTab("Teleport", 4483362458)
-
-local LocationsSection = TeleportTab:CreateSection("Locations")
-
-local TeleportButtons = {
-    {"Spawn", Vector3.new(0, 5, 0)},
-    {"Goal", Vector3.new(50, 5, 0)},
-    {"Midfield", Vector3.new(25, 5, 25)}
-}
-
-for _, button in pairs(TeleportButtons) do
-    TeleportTab:CreateButton({
-        Name = "Teleport to " .. button[1],
-        Callback = function()
-            if Character and Character:FindFirstChild("HumanoidRootPart") then
-                Character.HumanoidRootPart.CFrame = CFrame.new(button[2])
-                Rayfield:Notify({
-                    Title = "Teleported",
-                    Content = "Teleported to " .. button[1],
-                    Duration = 3,
-                    Image = 4483362458,
-                })
-            end
-        end,
-    })
-end
-
--- Settings Tab
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
-
-local ConfigSection = SettingsTab:CreateSection("Configuration")
-
-SettingsTab:CreateButton({
-    Name = "Save Configuration",
-    Callback = function()
-        Rayfield:Notify({
-            Title = "Settings Saved",
-            Content = "Your configuration has been saved",
-            Duration = 3,
-            Image = 4483362458,
-        })
-    end,
-})
-
-SettingsTab:CreateButton({
-    Name = "Reset Configuration",
-    Callback = function()
-        -- Reset all toggles and sliders
-        SpeedToggle:Set(false)
-        JumpToggle:Set(false)
-        NoclipToggle:Set(false)
-        BallSpeedSlider:Set(1)
-        AutoScoreToggle:Set(false)
-        HitboxToggle:Set(false)
-        ESPToggle:Set(false)
-        
-        Rayfield:Notify({
-            Title = "Settings Reset",
-            Content = "Your configuration has been reset",
-            Duration = 3,
-            Image = 4483362458,
-        })
-    end,
-})
+-- [Rest of your existing code (Fly, NoClip, Teleport, etc.) goes here...]
 
 -- Initialization
 Rayfield:Notify({
     Title = "Blue Lock Rivals Loaded",
-    Content = "The script has been successfully loaded!",
-    Duration = 5,
-    Image = 4483362458,
+    Content = "Press F9 if you encounter any issues",
+    Duration = 6,
 })
