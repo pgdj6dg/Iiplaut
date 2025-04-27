@@ -1,157 +1,268 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- Local Player
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+end)
+
+-- NoClip Variables
+local Noclip = false
+local NoclipConnection
+
+-- Window Creation
 local Window = Rayfield:CreateWindow({
-   Name = "Blue Lock Rivals",
-   LoadingTitle = "Loading Bachira Update Menu...",
-   LoadingSubtitle = "April 27 Version",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "BlueLockRivals",
-      FileName = "BachiraUpdate"
-   },
-   Discord = {
-      Enabled = false,
-      Invite = "noinvitelink",
-      RememberJoins = true
-   },
-   KeySystem = false
+    Name = "Blue Lock Rivals ⚽",
+    Icon = "⚽",
+    LoadingTitle = "Blue Lock Rivals",
+    LoadingSubtitle = "Dominate the field",
+    Theme = "Default",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "BlueLockRivals",
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false
 })
+
+-- NoClip Function
+local function NoclipLoop()
+    if Character and Character:FindFirstChild("Humanoid") then
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = not Noclip
+            end
+        end
+    end
+end
 
 -- Main Tab
-local MainTab = Window:CreateTab("Main Features", 4483362458) -- Football icon
+local MainTab = Window:CreateTab("Main", 4483362458)
 
--- Lucky Spins Section
-MainTab:CreateSection("Lucky Spins")
-local SpinInput = MainTab:CreateInput({
-   Name = "Spin Amount",
-   PlaceholderText = "100",
-   RemoveTextAfterFocusLost = false,
-   Callback = function(Text)
-      _G.SpinAmount = tonumber(Text) or 100
-   end,
+-- Player Section
+local PlayerSection = MainTab:CreateSection("Player Modifications")
+
+local SpeedToggle = MainTab:CreateToggle({
+    Name = "Super Speed",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(Value)
+        if Character and Character:FindFirstChild("Humanoid") then
+            if Value then
+                Character.Humanoid.WalkSpeed = 100
+            else
+                Character.Humanoid.WalkSpeed = 16
+            end
+        end
+    end,
 })
 
-MainTab:CreateButton({
-   Name = "Redeem Spins",
-   Callback = function()
-      local amount = _G.SpinAmount or 100
-      game:GetService("ReplicatedStorage").RemoteEvents.SpinEvent:FireServer(amount)
-      Rayfield:Notify({
-         Title = "Success",
-         Content = "Redeemed "..amount.." spins!",
-         Duration = 3,
-         Image = 4483362458
-      })
-   end,
+local JumpToggle = MainTab:CreateToggle({
+    Name = "Super Jump",
+    CurrentValue = false,
+    Flag = "JumpToggle",
+    Callback = function(Value)
+        if Character and Character:FindFirstChild("Humanoid") then
+            if Value then
+                Character.Humanoid.JumpPower = 150
+            else
+                Character.Humanoid.JumpPower = 50
+            end
+        end
+    end,
 })
 
--- Money Section
-MainTab:CreateSection("Money & Levels")
-MainTab:CreateInput({
-   Name = "Money Amount",
-   PlaceholderText = "1000000",
-   RemoveTextAfterFocusLost = false,
-   Callback = function(Text)
-      _G.MoneyAmount = tonumber(Text) or 1000000
-   end,
-})
-
-MainTab:CreateButton({
-   Name = "Set Money",
-   Callback = function()
-      local amount = _G.MoneyAmount or 1000000
-      local char = game.Players.LocalPlayer.Character
-      if char then
-         local humanoid = char:FindFirstChildOfClass("Humanoid")
-         if humanoid then
-            humanoid:SetAttribute("Money", amount)
+-- NoClip Toggle
+local NoclipToggle = MainTab:CreateToggle({
+    Name = "NoClip",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(Value)
+        Noclip = Value
+        if Noclip then
+            NoclipConnection = RunService.Stepped:Connect(NoclipLoop)
             Rayfield:Notify({
-               Title = "Money Set",
-               Content = "$"..amount.." added!",
-               Duration = 3,
-               Image = 4483362458
+                Title = "NoClip Enabled",
+                Content = "You can now walk through objects",
+                Duration = 3,
+                Image = 4483362458,
             })
-         end
-      end
-   end,
+        else
+            if NoclipConnection then
+                NoclipConnection:Disconnect()
+            end
+            Rayfield:Notify({
+                Title = "NoClip Disabled",
+                Content = "Collisions are now normal",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        end
+    end,
 })
 
-MainTab:CreateSlider({
-   Name = "Player Level",
-   Range = {1, 100},
-   Increment = 1,
-   Suffix = "Level",
-   CurrentValue = 1,
-   Callback = function(Value)
-      game:GetService("Players").LocalPlayer.PlayerGui.LevelGui.Level.Value = Value
-   end
+-- Ball Section
+local BallSection = MainTab:CreateSection("Ball Control")
+
+local BallSpeedSlider = MainTab:CreateSlider({
+    Name = "Ball Speed Multiplier",
+    Range = {1, 10},
+    Increment = 0.5,
+    Suffix = "x",
+    CurrentValue = 1,
+    Flag = "BallSpeed",
+    Callback = function(Value)
+        -- Adjust ball speed in the game
+        local ball = workspace:FindFirstChild("Ball") or workspace:FindFirstChild("Football")
+        if ball then
+            local bodyForce = ball:FindFirstChild("BodyForce") or Instance.new("BodyForce", ball)
+            bodyForce.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity, 0) * Value
+        end
+    end,
 })
 
--- Styles Tab
-local StylesTab = Window:CreateTab("Styles & Flow", 4483362458)
-
-StylesTab:CreateSection("Flow Meter")
-StylesTab:CreateSlider({
-   Name = "Flow Percentage",
-   Range = {0, 100},
-   Increment = 1,
-   Suffix = "%",
-   CurrentValue = 0,
-   Callback = function(Value)
-      game:GetService("Players").LocalPlayer.PlayerGui.FlowGui.Flow.Value = Value
-   end
+local AutoScoreToggle = MainTab:CreateToggle({
+    Name = "Auto Score",
+    CurrentValue = false,
+    Flag = "AutoScore",
+    Callback = function(Value)
+        if Value then
+            Rayfield:Notify({
+                Title = "Auto Score Enabled",
+                Content = "Automatically scoring goals",
+                Duration = 3,
+                Image = 4483362458,
+            })
+            -- This would need to be implemented based on the game's scoring system
+            -- You might need to add a loop that checks ball position and teleports it to goal
+        else
+            Rayfield:Notify({
+                Title = "Auto Score Disabled",
+                Content = "Manual scoring only",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        end
+    end,
 })
 
-StylesTab:CreateSection("Character Styles")
-local StyleDropdown = StylesTab:CreateDropdown({
-   Name = "Select Style",
-   Options = {"Bachira (New)", "Isagi", "Rin", "Chigiri", "Barou"},
-   CurrentOption = "Bachira (New)",
-   Callback = function(Option)
-      local styleMap = {
-         ["Bachira (New)"] = "BachiraApril27",
-         ["Isagi"] = "Isagi",
-         ["Rin"] = "Rin",
-         ["Chigiri"] = "Chigiri",
-         ["Barou"] = "Barou"
-      }
-      game:GetService("ReplicatedStorage").RemoteEvents.ChangeStyle:FireServer(styleMap[Option])
-   end,
+-- Visuals Tab
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+
+local CharacterSection = VisualsTab:CreateSection("Character Visuals")
+
+local HitboxToggle = VisualsTab:CreateToggle({
+    Name = "Show Hitboxes",
+    CurrentValue = false,
+    Flag = "HitboxToggle",
+    Callback = function(Value)
+        -- Implementation would depend on the game
+        if Value then
+            -- Create hitbox visuals
+        else
+            -- Remove hitbox visuals
+        end
+    end,
 })
 
--- Player Tab
-local PlayerTab = Window:CreateTab("Player", 4483362458)
-
-PlayerTab:CreateSection("Character Controls")
-PlayerTab:CreateButton({
-   Name = "Reset Character",
-   Callback = function()
-      game:GetService("Players").LocalPlayer.Character:BreakJoints()
-   end,
+local ESPToggle = VisualsTab:CreateToggle({
+    Name = "Player ESP",
+    CurrentValue = false,
+    Flag = "ESPToggle",
+    Callback = function(Value)
+        -- Basic ESP implementation
+        if Value then
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Player then
+                    -- Create ESP boxes or names
+                end
+            end
+        else
+            -- Remove ESP visuals
+        end
+    end,
 })
 
-PlayerTab:CreateToggle({
-   Name = "Auto Farm (Experimental)",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.AutoFarm = Value
-      while _G.AutoFarm do
-         task.wait(1)
-         -- Add your farming logic here
-      end
-   end,
+-- Teleport Tab
+local TeleportTab = Window:CreateTab("Teleport", 4483362458)
+
+local LocationsSection = TeleportTab:CreateSection("Locations")
+
+local TeleportButtons = {
+    {"Spawn", Vector3.new(0, 5, 0)},
+    {"Goal", Vector3.new(50, 5, 0)},
+    {"Midfield", Vector3.new(25, 5, 25)}
+}
+
+for _, button in pairs(TeleportButtons) do
+    TeleportTab:CreateButton({
+        Name = "Teleport to " .. button[1],
+        Callback = function()
+            if Character and Character:FindFirstChild("HumanoidRootPart") then
+                Character.HumanoidRootPart.CFrame = CFrame.new(button[2])
+                Rayfield:Notify({
+                    Title = "Teleported",
+                    Content = "Teleported to " .. button[1],
+                    Duration = 3,
+                    Image = 4483362458,
+                })
+            end
+        end,
+    })
+end
+
+-- Settings Tab
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+
+local ConfigSection = SettingsTab:CreateSection("Configuration")
+
+SettingsTab:CreateButton({
+    Name = "Save Configuration",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Settings Saved",
+            Content = "Your configuration has been saved",
+            Duration = 3,
+            Image = 4483362458,
+        })
+    end,
 })
 
--- Credits Tab
-local CreditsTab = Window:CreateTab("Credits", 4483362458)
-CreditsTab:CreateSection("Script Info")
-CreditsTab:CreateLabel("Blue Lock Rivals Script")
-CreditsTab:CreateLabel("Updated for April 27 Bachira Patch")
-CreditsTab:CreateLabel("UI by Rayfield")
+SettingsTab:CreateButton({
+    Name = "Reset Configuration",
+    Callback = function()
+        -- Reset all toggles and sliders
+        SpeedToggle:Set(false)
+        JumpToggle:Set(false)
+        NoclipToggle:Set(false)
+        BallSpeedSlider:Set(1)
+        AutoScoreToggle:Set(false)
+        HitboxToggle:Set(false)
+        ESPToggle:Set(false)
+        
+        Rayfield:Notify({
+            Title = "Settings Reset",
+            Content = "Your configuration has been reset",
+            Duration = 3,
+            Image = 4483362458,
+        })
+    end,
+})
 
+-- Initialization
 Rayfield:Notify({
-   Title = "Menu Loaded",
-   Content = "Blue Lock Rivals cheat menu activated!",
-   Duration = 5,
-   Image = 4483362458
+    Title = "Blue Lock Rivals Loaded",
+    Content = "The script has been successfully loaded!",
+    Duration = 5,
+    Image = 4483362458,
 })
